@@ -9,8 +9,8 @@ public enum BuildRunner {
     public private(set) static var options: ArgumentOptions?
 
     @discardableResult
-    public static func performCommand(_ options: ArgumentOptions? = nil) throws -> ArgumentOptions {
-        let finalOptions = try options ?? ArgumentOptions.parse(CommandLine.arguments)
+    public static func performCommand(_ arguments: [String] = CommandLine.arguments) throws -> ArgumentOptions {
+        let finalOptions = try ArgumentOptions.parse(arguments)
         self.options = finalOptions
 
         if Utility.shell("which brew") == nil {
