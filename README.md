@@ -58,10 +58,9 @@ class MyBuild: BaseBuild {
 
 // 3. Execute the build
 do {
-    let options = try ArgumentOptions.parse(Array(CommandLine.arguments))
-    try BuildRunner.performCommand(options)
+    let options = try BuildRunner.performCommand()
 
-    let build = MyBuild(library: MyLibrary.myLib)
+    let build = MyBuild(library: MyLibrary.myLib, options: options)
     try build.buildALL()
 } catch {
     print("Build failed: \(error)")
