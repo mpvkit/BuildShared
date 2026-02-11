@@ -12,19 +12,13 @@ let package = Package(
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "BuildShared",
-            targets: ["BuildShared"]),
-    ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0")
+            targets: ["BuildShared"])
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a suite of tests.
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
-            name: "BuildShared",
-            dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser")
-            ]
+            name: "BuildShared"
         ),
     ]
 )

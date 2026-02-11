@@ -72,13 +72,13 @@ do {
 
 - `enable-debug`: Enable debug mode.
 - `enable-gpl`: Enable GPL features.
-- `enable-split-platform`: Generate split platform xcframeworks.
-- `version=<version>`: Set release version.
-- `platform=<platform>`: Specify target platforms (comma separated).
+- `enable-split-platform`: Generate split platform XCFrameworks.
+- `version=<version>`: Set release version (e.g., `1.2.3`).
+- `platform=<platform>`: Specify target platforms (comma-separated).
   - Values: `ios`, `macos`, `tvos`, `xros` (visionOS).
 
 Example:
 
 ```bash
-swift run MyLibraryBuild platform=ios,macos version=1.2.3
+swift run MyLibraryBuild platform=ios,macos version=1.2.3 enable-debug
 ```

@@ -1,8 +1,6 @@
 import Foundation
-import ArgumentParser
 
 /// Public options class that maintains API compatibility
-/// Internally uses ArgumentParser for modern CLI parsing
 public class ArgumentOptions {
     private let arguments: [String]
     
@@ -41,35 +39,44 @@ public class ArgumentOptions {
     /// - Returns: Parsed ArgumentOptions instance
     /// - Throws: NSError if parsing fails
     public static func parse(_ arguments: [String]) throws -> ArgumentOptions {
-        // Use ArgumentParser internally
-        do {
-            let command = try BuildCommand.parseAsRoot(arguments)
-            
-            guard let buildCommand = command as? BuildCommand else {
-                throw NSError(domain: "BuildShared", code: 1, userInfo: [
-                    NSLocalizedDescriptionKey: "Failed to parse command"
-                ])
+        let options = ArgumentOptions(arguments: Array(arguments.dropFirst()))
+        for argument in arguments {
+            switch argument {
+            case "enable-debug":
+                options.enableDebug = true
+            case "enable-gpl":
+                options.enableGPL = true
+            case "enable-split-platform":
+                options.enableSplitPlatform = true
+            default:
+                if argument.hasPrefix("version=") {
+                    let version = String(argument.suffix(argument.count - "version=".count))
+                    options.releaseVersion = version
+                }
+                if argument.hasPrefix("platform=") {
+                    let values = String(argument.suffix(argument.count - "platform=".count))
+                    for val in values.split(separator: ",") {
+                        let platformStr = val.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                        switch platformStr {
+                        case "ios":
+                            options.platforms += [PlatformType.ios, PlatformType.isimulator]
+                        case "tvos":
+                            options.platforms += [PlatformType.tvos, PlatformType.tvsimulator]
+                        case "xros":
+                            options.platforms += [PlatformType.xros, PlatformType.xrsimulator]
+                        default:
+                            guard let other = PlatformType(rawValue: platformStr) else {
+                                throw NSError(domain: "unknown platform: \(val)", code: 1)
+                            }
+                            if !options.platforms.contains(other) {
+                                options.platforms += [other]
+                            }
+                        }
+                    }
+                }
             }
-            
-            // Convert to legacy ArgumentOptions format
-            let options = ArgumentOptions(arguments: Array(arguments.dropFirst()))
-            options.enableDebug = buildCommand.enableDebug
-            options.enableGPL = buildCommand.enableGPL
-            options.enableSplitPlatform = buildCommand.enableSplitPlatform
-            options.platforms = buildCommand.parsedPlatforms
-            options.releaseVersion = buildCommand.version
-            
-            return options
-        } catch let error as ValidationError {
-            // Convert ArgumentParser validation error to NSError
-            throw NSError(domain: "BuildShared", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: error.message
-            ])
-        } catch {
-            // Re-throw other errors as NSError
-            throw NSError(domain: "BuildShared", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: error.localizedDescription
-            ])
         }
+        
+        return options
     }
 }
