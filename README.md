@@ -41,7 +41,18 @@ enum MyLibrary: String, BuildLibrary {
     }
 
     var targets: [PackageTarget] {
-        return []
+        return [
+            switch self {
+            case .myLib:
+                return  [
+                    .target(
+                        name: "MyLib",
+                        url: "https://github.com/example/mylib/releases/download/\(BuildShared.options!.releaseVersion)/myLib.xcframework.zip",
+                        checksum: "https://github.com/example/mylib/releases/download/\(BuildShared.options!.releaseVersion)/myLib.xcframework.checksum.txt"
+                    ),
+                ]
+            }
+        ]
     }
 }
 
