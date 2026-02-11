@@ -5,10 +5,14 @@ import Foundation
 
 // BuildRunner - maintains API namespace for main commands
 public enum BuildRunner {
+    /// 全局配置选项，在调用 performCommand 后填充
+    public private(set) static var options: ArgumentOptions?
+
     @discardableResult
     public static func performCommand(_ options: ArgumentOptions? = nil) throws -> ArgumentOptions {
         let finalOptions = try options ?? ArgumentOptions.parse(CommandLine.arguments)
-        
+        self.options = finalOptions
+
         if Utility.shell("which brew") == nil {
             print("""
             You need to run the script first
