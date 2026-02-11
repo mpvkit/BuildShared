@@ -84,6 +84,7 @@ open class BaseBuild {
 
     open func build(platform: PlatformType, arch: ArchType) throws {
         let buildURL = scratch(platform: platform, arch: arch)
+        let thinURL = thinDir(platform: platform, arch: arch)
         try? FileManager.default.createDirectory(at: buildURL, withIntermediateDirectories: true, attributes: nil)
         let environ = environment(platform: platform, arch: arch)
         
@@ -97,7 +98,8 @@ open class BaseBuild {
             platform: platform,
             arch: arch,
             environment: environ,
-            arguments: args
+            arguments: args,
+            prefix: thinURL
         )
         
         try buildSystem.build(

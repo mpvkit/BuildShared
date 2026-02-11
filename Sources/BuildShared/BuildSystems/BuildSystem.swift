@@ -19,6 +19,7 @@ internal protocol BuildSystem {
     ///   - arch: Target architecture
     ///   - environment: Environment variables
     ///   - arguments: Additional configure arguments
+    ///   - prefix: Installation prefix directory (thin directory)
     /// - Throws: BuildError if configuration fails
     func configure(
         buildURL: URL,
@@ -26,7 +27,8 @@ internal protocol BuildSystem {
         platform: PlatformType,
         arch: ArchType,
         environment: [String: String],
-        arguments: [String]
+        arguments: [String],
+        prefix: URL?
     ) throws
     
     /// Execute the build

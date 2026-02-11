@@ -13,14 +13,15 @@ internal struct CMakeBuildSystem: InitializableBuildSystem {
         platform: PlatformType,
         arch: ArchType,
         environment: [String: String],
-        arguments: [String]
+        arguments: [String],
+        prefix: URL?
     ) throws {
         if Utility.shell("which cmake") == nil {
             Utility.shell("brew install cmake")
         }
         
         let cmake = Utility.shell("which cmake", isOutput: true)!
-        let thinDirPath = buildURL.path
+        let thinDirPath = prefix?.path ?? buildURL.path
         
         var cmakeArgs = [
             sourceURL.path,

@@ -32,15 +32,22 @@ internal struct WafBuildSystem: InitializableBuildSystem {
         platform: PlatformType,
         arch: ArchType,
         environment: [String: String],
-        arguments: [String]
+        arguments: [String],
+        prefix: URL?
     ) throws {
         guard let waf = findWaf(in: sourceURL) else {
             throw BuildError.toolNotFound("waf")
         }
         
+        var args = ["configure"]
+        if let prefix = prefix {
+            args.append("--prefix=\(prefix.path)")
+        }
+        args.append(contentsOf: arguments)
+        
         try Utility.launch(
             path: waf.path,
-            arguments: ["configure"] + arguments,
+            arguments: args,
             currentDirectoryURL: sourceURL,
             environment: environment
         )

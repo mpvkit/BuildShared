@@ -14,7 +14,8 @@ internal struct MakeBuildSystem: InitializableBuildSystem {
         platform: PlatformType,
         arch: ArchType,
         environment: [String: String],
-        arguments: [String]
+        arguments: [String],
+        prefix: URL?
     ) throws {
         // Run autogen if exists
         let autogen = sourceURL + "autogen.sh"
@@ -48,7 +49,8 @@ internal struct MakeBuildSystem: InitializableBuildSystem {
         
         // Run configure
         if FileManager.default.fileExists(atPath: configure.path) {
-            var args = ["--prefix=\(buildURL.path)"]
+            let prefixPath = prefix?.path ?? buildURL.path
+            var args = ["--prefix=\(prefixPath)"]
             args.append(contentsOf: arguments)
             try Utility.launch(
                 executableURL: configure,

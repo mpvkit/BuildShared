@@ -13,7 +13,8 @@ internal struct MesonBuildSystem: InitializableBuildSystem {
         platform: PlatformType,
         arch: ArchType,
         environment: [String: String],
-        arguments: [String]
+        arguments: [String],
+        prefix: URL?
     ) throws {
         // Ensure meson and ninja are installed
         if Utility.shell("which meson") == nil {
@@ -27,7 +28,8 @@ internal struct MesonBuildSystem: InitializableBuildSystem {
             buildURL: buildURL,
             platform: platform,
             arch: arch,
-            environment: environment
+            environment: environment,
+            prefix: prefix
         )
         
         let meson = Utility.shell("which meson", isOutput: true)!
@@ -79,10 +81,11 @@ internal struct MesonBuildSystem: InitializableBuildSystem {
         buildURL: URL,
         platform: PlatformType,
         arch: ArchType,
-        environment: [String: String]
+        environment: [String: String],
+        prefix: URL?
     ) -> URL {
         let crossFile = buildURL + "crossFile.meson"
-        let prefix = buildURL
+        let prefixPath = prefix ?? buildURL
         
         // Extract cFlags and ldFlags from environment
         let cFlagsStr = environment["CFLAGS"] ?? ""
@@ -116,7 +119,7 @@ internal struct MesonBuildSystem: InitializableBuildSystem {
         [built-in options]
         default_library = 'static'
         buildtype = 'release'
-        prefix = '\(prefix.path)'
+        prefix = '\(prefixPath.path)'
         c_args = [\(cFlags)]
         cpp_args = [\(cFlags)]
         objc_args = [\(cFlags)]
