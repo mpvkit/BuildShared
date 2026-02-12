@@ -89,16 +89,16 @@ jobs:
 
             pr_input = '''${{ inputs.pr_body }}'''
             repo_url = '${{ env.REPOSITORY_URL }}'
-            latest = '${{ env.NEW_VERSION }}'
+            new = '${{ env.NEW_VERSION }}'
             old = '${{ env.OLD_VERSION }}'
 
             if pr_input and pr_input.strip():
                 # Replace placeholders with actual values
                 pr_body = pr_input.replace('{REPOSITORY_URL}', repo_url)
-                pr_body = pr_body.replace('{NEW_VERSION}', latest)
+                pr_body = pr_body.replace('{NEW_VERSION}', new)
                 pr_body = pr_body.replace('{OLD_VERSION}', old)
             else:
-                pr_body = f"{repo_url}/blob/{latest}/Changelog\n\n{repo_url}/compare/{old}...{latest}"
+                pr_body = f"{repo_url}/releases/tag/{new}\n\n{repo_url}/compare/{old}...{new}"
 
             with open('/tmp/PR_BODY.txt', 'w', encoding='utf-8') as f:
                 f.write(pr_body)
