@@ -97,10 +97,11 @@ jobs:
                 pr_body = pr_input.replace('{REPOSITORY_URL}', repo_url)
                 pr_body = pr_body.replace('{LATEST_VERSION}', latest)
                 pr_body = pr_body.replace('{OLD_VERSION}', old)
-                set_env('PR_BODY', pr_body)
             else:
-                body = f"{repo_url}/blob/{latest}/Changelog\n\n{repo_url}/compare/{old}...{latest}"
-                set_env('PR_BODY', body)
+                pr_body = f"{repo_url}/blob/{latest}/Changelog\n\n{repo_url}/compare/{old}...{latest}"
+
+            with open('/tmp/PR_BODY.txt', 'w', encoding='utf-8') as f:
+                f.write(pr_body)
 
       - name: Create Pull Request
         if: env.FOUND_NEW_VERSION
@@ -109,6 +110,6 @@ jobs:
           add-paths: |
             ./Sources/BuildScripts/XCFrameworkBuild/main.swift
           title: "bump version to ${{ env.LATEST_VERSION }}"
-          body: ${{ env.PR_BODY }}
+          body-path: /tmp/PR_BODY.txt
           commit-message: "chore: bump version to ${{ env.LATEST_VERSION }}"
           
