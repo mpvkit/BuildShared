@@ -87,13 +87,17 @@ jobs:
           script: |
             import os
 
-            pr_input = '${{ inputs.pr_body }}'
+            pr_input = '''${{ inputs.pr_body }}'''
             repo_url = '${{ env.REPOSITORY_URL }}'
             latest = '${{ env.LATEST_VERSION }}'
             old = '${{ env.OLD_VERSION }}'
 
             if pr_input and pr_input.strip():
-                set_env('PR_BODY', pr_input)
+                # Replace placeholders with actual values
+                pr_body = pr_input.replace('{REPOSITORY_URL}', repo_url)
+                pr_body = pr_body.replace('{LATEST_VERSION}', latest)
+                pr_body = pr_body.replace('{OLD_VERSION}', old)
+                set_env('PR_BODY', pr_body)
             else:
                 body = f"{repo_url}/blob/{latest}/Changelog\n\n{repo_url}/compare/{old}...{latest}"
                 set_env('PR_BODY', body)
