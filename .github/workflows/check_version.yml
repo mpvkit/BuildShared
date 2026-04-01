@@ -25,13 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout latest code
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ inputs.repository }}
-          path: 'latest_code'
-          fetch-depth: 0
-
       - name: Normalize repository input
         shell: bash
         run: |
@@ -44,6 +37,11 @@ jobs:
           fi
           echo "repository url: $repo_url"
           echo "REPOSITORY_URL=$repo_url" >> $GITHUB_ENV
+
+      - name: Checkout latest code
+        shell: bash
+        run: |
+          git clone --no-single-branch "$REPOSITORY_URL" latest_code
 
 
       - name: Get latest verion
