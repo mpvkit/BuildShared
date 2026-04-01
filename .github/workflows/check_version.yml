@@ -41,10 +41,14 @@ jobs:
       - name: Checkout latest code
         shell: bash
         run: |
-          git clone --no-single-branch "$REPOSITORY_URL" latest_code
+          git clone --no-single-branch "$REPOSITORY_URL" latest_code || {
+            echo "Failed to clone repository: $REPOSITORY_URL"
+            exit 1
+          }
+          git -C latest_code fetch --tags --force
 
 
-      - name: Get latest verion
+      - name: Get latest version
         id: version
         run: |
           cd ./latest_code
