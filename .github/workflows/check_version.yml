@@ -75,14 +75,14 @@ jobs:
           if [[ -n "$tag_exclude" ]]; then
             mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- "$tag_exclude" || true)
           else
-            # backward compatibility: keep excluding pre-release or special tags by default
+            # backward compatibility: equivalent to previous `grep -v "-" | grep -v "_"` behavior
             mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- '[-_]' || true)
           fi
 
           latest_tag="${tags[0]:-}"
 
           if [[ -z "$latest_tag" ]]; then
-            echo "No matching tag found. tag_filter='$tag_filter', tag_exclude='$tag_exclude'. Please verify patterns or repository tags." >&2
+            echo "No matching tag found after include-then-exclude filtering. tag_filter='$tag_filter', tag_exclude='$tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
             exit 1
           fi
 
