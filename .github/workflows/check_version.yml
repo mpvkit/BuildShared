@@ -66,23 +66,23 @@ jobs:
           tag_filter='${{ inputs.tag_filter }}'
           tag_exclude='${{ inputs.tag_exclude }}'
 
-          tags=$(git tag --sort=-v:refname)
+          mapfile -t tags < <(git tag --sort=-v:refname)
 
           if [[ -n "$tag_filter" ]]; then
-            tags=$(printf '%s\n' "$tags" | grep -E "$tag_filter" || true)
+            mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -E -- "$tag_filter" || true)
           fi
 
           if [[ -n "$tag_exclude" ]]; then
-            tags=$(printf '%s\n' "$tags" | grep -Ev "$tag_exclude" || true)
+            mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- "$tag_exclude" || true)
           else
             # backward compatibility: keep excluding pre-release or special tags by default
-            tags=$(printf '%s\n' "$tags" | grep -v "-" | grep -v "_" || true)
+            mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- '[-_]' || true)
           fi
 
-          latest_tag=$(printf '%s\n' "$tags" | head -n 1)
+          latest_tag="${tags[0]:-}"
 
           if [[ -z "$latest_tag" ]]; then
-            echo "No matching tag found. tag_filter='$tag_filter', tag_exclude='$tag_exclude'"
+            echo "No matching tag found. tag_filter='$tag_filter', tag_exclude='$tag_exclude'. Please verify patterns or repository tags."
             exit 1
           fi
 
