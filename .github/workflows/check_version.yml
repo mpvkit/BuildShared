@@ -67,45 +67,55 @@ jobs:
           tag_exclude="${{ inputs.tag_exclude }}"
           printf -v escaped_tag_filter '%q' "$tag_filter"
           printf -v escaped_tag_exclude '%q' "$tag_exclude"
-
+          
           mapfile -t tags < <(git tag --sort=-v:refname)
           empty_reason=''
-
+          
           if [[ ${#tags[@]} -eq 0 ]]; then
             echo "No tags found in source repository. Please verify repository and tags." >&2
             exit 1
           fi
-
+          
+          # --------------------------
+          # Filter include tags
+          # --------------------------
           if [[ -n "$tag_filter" ]]; then
-            if ! grep -E -- "$tag_filter" /dev/null >/dev/null 2>&1; then
-              echo "Invalid tag_filter regex: '$escaped_tag_filter'." >&2
-              exit 1
+            # Automatic judgment: contains regular expression metacharacters → regular expression matching; otherwise → ordinary string matching
+            if [[ "$tag_filter" =~ [.*+?^$[\](){}|\\] ]]; then
+              mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -E -- "$tag_filter" 2>/dev/null || true)
+            else
+              mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -F -- "$tag_filter" 2>/dev/null || true)
             fi
-            mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -E -- "$tag_filter" || true)
+          
             if [[ ${#tags[@]} -eq 0 ]]; then
               empty_reason='include'
             fi
           fi
-
+          
+          # --------------------------
+          # Filter exclude tags
+          # --------------------------
           if [[ -n "$tag_exclude" ]]; then
-            if ! grep -E -- "$tag_exclude" /dev/null >/dev/null 2>&1; then
-              echo "Invalid tag_exclude regex: '$escaped_tag_exclude'." >&2
-              exit 1
+            # Automatic judgment: contains regular expression metacharacters → regular exclusion; otherwise → ordinary string exclusion
+            if [[ "$tag_exclude" =~ [.*+?^$[\](){}|\\] ]]; then
+              mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- "$tag_exclude" 2>/dev/null || true)
+            else
+              mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Fv -- "$tag_exclude" 2>/dev/null || true)
             fi
-            mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- "$tag_exclude" || true)
+          
             if [[ ${#tags[@]} -eq 0 && -z "$empty_reason" ]]; then
               empty_reason='exclude'
             fi
           else
-            # backward compatibility: equivalent to previous `grep -v "-" | grep -v "_"` behavior
+            # Backward compatibility: Tags with - _ are excluded by default
             mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- '[-_]' || true)
             if [[ ${#tags[@]} -eq 0 && -z "$empty_reason" ]]; then
               empty_reason='default_exclude'
             fi
           fi
-
+          
           latest_tag="${tags[0]:-}"
-
+          
           if [[ -z "$latest_tag" ]]; then
             if [[ "$empty_reason" == "include" ]]; then
               echo "No tags matched include filter. tag_filter='$escaped_tag_filter'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
@@ -114,12 +124,11 @@ jobs:
             elif [[ "$empty_reason" == "default_exclude" ]]; then
               echo "All tags were excluded by default rule '[-_]'. Set tag_exclude to customize behavior, or check available tags with 'git tag --sort=-v:refname'." >&2
             else
-              # Defensive fallback for unexpected state.
               echo "No matching tag found after include-then-exclude filtering. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
             fi
             exit 1
           fi
-
+          
           echo "latest tag: $latest_tag"
           echo "NEW_VERSION=$latest_tag" >> $GITHUB_ENV
           rm -rf ../latest_code
