@@ -82,7 +82,7 @@ jobs:
           latest_tag="${tags[0]:-}"
 
           if [[ -z "$latest_tag" ]]; then
-            echo "No matching tag found. tag_filter='$tag_filter', tag_exclude='$tag_exclude'. Please verify patterns or repository tags."
+            echo "No matching tag found. tag_filter='$tag_filter', tag_exclude='$tag_exclude'. Please verify patterns or repository tags." >&2
             exit 1
           fi
 
