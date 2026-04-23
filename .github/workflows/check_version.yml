@@ -77,7 +77,7 @@ jobs:
           fi
 
           if [[ -n "$tag_filter" ]]; then
-            if ! grep -E -- "$tag_filter" <<< "" >/dev/null 2>&1; then
+            if ! grep -E -- "$tag_filter" /dev/null >/dev/null 2>&1; then
               echo "Invalid tag_filter regex: '$escaped_tag_filter'." >&2
               exit 1
             fi
@@ -88,7 +88,7 @@ jobs:
           fi
 
           if [[ -n "$tag_exclude" ]]; then
-            if ! grep -E -- "$tag_exclude" <<< "" >/dev/null 2>&1; then
+            if ! grep -E -- "$tag_exclude" /dev/null >/dev/null 2>&1; then
               echo "Invalid tag_exclude regex: '$escaped_tag_exclude'." >&2
               exit 1
             fi
@@ -115,7 +115,7 @@ jobs:
               echo "All tags were excluded by default rule '[-_]'. Set tag_exclude to customize behavior, or check available tags with 'git tag --sort=-v:refname'." >&2
             else
               # Defensive fallback for unexpected state.
-              echo "No matching tag found after include-then-exclude filtering. tag_filter='$escaped_tag_filter', tag_exclude='$escaped_tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
+              echo "No matching tag found after include-then-exclude filtering. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
             fi
             exit 1
           fi
