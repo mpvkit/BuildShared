@@ -63,8 +63,10 @@ jobs:
         shell: bash
         run: |
           cd ./latest_code
-          tag_filter='${{ inputs.tag_filter }}'
-          tag_exclude='${{ inputs.tag_exclude }}'
+          tag_filter="${{ inputs.tag_filter }}"
+          tag_exclude="${{ inputs.tag_exclude }}"
+          printf -v safe_tag_filter '%q' "$tag_filter"
+          printf -v safe_tag_exclude '%q' "$tag_exclude"
 
           mapfile -t tags < <(git tag --sort=-v:refname)
           empty_reason=''
@@ -98,13 +100,13 @@ jobs:
 
           if [[ -z "$latest_tag" ]]; then
             if [[ "$empty_reason" == "include" ]]; then
-              echo "No tags matched include filter. tag_filter='$tag_filter'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
+              echo "No tags matched include filter. tag_filter='$safe_tag_filter'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
             elif [[ "$empty_reason" == "exclude" ]]; then
-              echo "All tags were excluded by tag_exclude. tag_exclude='$tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
+              echo "All tags were excluded by tag_exclude. tag_exclude='$safe_tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
             elif [[ "$empty_reason" == "default_exclude" ]]; then
               echo "All tags were excluded by default rule '[-_]'. Set tag_exclude to customize behavior, or check available tags with 'git tag --sort=-v:refname'." >&2
             else
-              echo "No matching tag found after include-then-exclude filtering. tag_filter='$tag_filter', tag_exclude='$tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
+              echo "No matching tag found after include-then-exclude filtering. tag_filter='$safe_tag_filter', tag_exclude='$safe_tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
             fi
             exit 1
           fi
