@@ -15,6 +15,16 @@ on:
         description: custom pull request body (optional)
         required: false
         type: string
+      tag_filter:
+        description: include filter for tag names (regex supported, optional)
+        required: false
+        default: ''
+        type: string
+      tag_exclude:
+        description: exclude filter for tag names (regex supported, optional)
+        required: false
+        default: ''
+        type: string
 
 jobs:
   check_version:
@@ -50,9 +60,32 @@ jobs:
 
       - name: Get latest version
         id: version
+        shell: bash
         run: |
           cd ./latest_code
-          latest_tag=$(git tag --sort=-v:refname | grep -v "-" | grep -v "_" | head -n 1)
+          tag_filter='${{ inputs.tag_filter }}'
+          tag_exclude='${{ inputs.tag_exclude }}'
+
+          tags=$(git tag --sort=-v:refname)
+
+          if [[ -n "$tag_filter" ]]; then
+            tags=$(printf '%s\n' "$tags" | grep -E "$tag_filter" || true)
+          fi
+
+          if [[ -n "$tag_exclude" ]]; then
+            tags=$(printf '%s\n' "$tags" | grep -Ev "$tag_exclude" || true)
+          else
+            # backward compatibility: keep excluding pre-release or special tags by default
+            tags=$(printf '%s\n' "$tags" | grep -v "-" | grep -v "_" || true)
+          fi
+
+          latest_tag=$(printf '%s\n' "$tags" | head -n 1)
+
+          if [[ -z "$latest_tag" ]]; then
+            echo "No matching tag found. tag_filter='$tag_filter', tag_exclude='$tag_exclude'"
+            exit 1
+          fi
+
           echo "latest tag: $latest_tag"
           echo "NEW_VERSION=$latest_tag" >> $GITHUB_ENV
           rm -rf ../latest_code
