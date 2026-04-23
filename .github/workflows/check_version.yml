@@ -146,7 +146,13 @@ jobs:
 
               const filePath = './Sources/BuildScripts/XCFrameworkBuild/main.swift'
               const content = fs.readFileSync(filePath, 'utf8')
-              const versionPattern = new RegExp(`(case \\.${escapeRegex(library)}[^"]+?)"(.+?)"`)
+              let versionPattern
+              try {
+                versionPattern = new RegExp(`(case \\.${escapeRegex(library)}[^"]+?)"(.+?)"`)
+              } catch {
+                core.setFailed(`Invalid library pattern for '${library}'.`)
+                return
+              }
               const matched = content.match(versionPattern)
 
               if (!matched) {
