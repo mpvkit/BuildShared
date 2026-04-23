@@ -90,80 +90,83 @@ jobs:
             const runGit = (args) =>
               cp.execFileSync('git', args, { cwd: './latest_code', encoding: 'utf8' }).trim()
 
-            let tags = runGit(['tag', '--sort=-v:refname'])
-              .split('\n')
-              .map((tag) => tag.trim())
-              .filter(Boolean)
+            const latestCodePath = path.resolve('./latest_code')
+            try {
+              let tags = runGit(['tag', '--sort=-v:refname'])
+                .split('\n')
+                .map((tag) => tag.trim())
+                .filter(Boolean)
 
-            if (tags.length === 0) {
-              core.setFailed('No tags found in source repository. Please verify repository and tags.')
-              return
-            }
-
-            let emptyReason = ''
-
-            if (tagFilter) {
-              if (hasRegexMeta(tagFilter)) {
-                const includeRegex = safeRegex(tagFilter)
-                tags = includeRegex ? tags.filter((tag) => includeRegex.test(tag)) : []
-              } else {
-                tags = tags.filter((tag) => tag.includes(tagFilter))
+              if (tags.length === 0) {
+                core.setFailed('No tags found in source repository. Please verify repository and tags.')
+                return
               }
-              if (tags.length === 0) emptyReason = 'include'
-            }
 
-            if (tagExclude) {
-              if (hasRegexMeta(tagExclude)) {
-                const excludeRegex = safeRegex(tagExclude)
-                tags = excludeRegex ? tags.filter((tag) => !excludeRegex.test(tag)) : []
-              } else {
-                tags = tags.filter((tag) => !tag.includes(tagExclude))
+              let emptyReason = ''
+
+              if (tagFilter) {
+                if (hasRegexMeta(tagFilter)) {
+                  const includeRegex = safeRegex(tagFilter)
+                  tags = includeRegex ? tags.filter((tag) => includeRegex.test(tag)) : []
+                } else {
+                  tags = tags.filter((tag) => tag.includes(tagFilter))
+                }
+                if (tags.length === 0) emptyReason = 'include'
               }
-              if (tags.length === 0 && !emptyReason) emptyReason = 'exclude'
-            } else if (!tagFilter) {
-              tags = tags.filter((tag) => !/[-_]/.test(tag))
-              if (tags.length === 0 && !emptyReason) emptyReason = 'default_exclude'
-            }
 
-            const latestTag = tags[0] || ''
-            if (!latestTag) {
-              if (emptyReason === 'include') {
-                core.setFailed(`No tags matched include filter. tag_filter='${tagFilter}'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.`)
-              } else if (emptyReason === 'exclude') {
-                core.setFailed(`All tags were excluded by tag_exclude. tag_exclude='${tagExclude}'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.`)
-              } else if (emptyReason === 'default_exclude') {
-                core.setFailed("All tags were excluded by default rule '[-_]'. Set tag_exclude to customize behavior, or check available tags with 'git tag --sort=-v:refname'.")
-              } else {
-                core.setFailed("No matching tag found after include-then-exclude filtering. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.")
+              if (tagExclude) {
+                if (hasRegexMeta(tagExclude)) {
+                  const excludeRegex = safeRegex(tagExclude)
+                  tags = excludeRegex ? tags.filter((tag) => !excludeRegex.test(tag)) : []
+                } else {
+                  tags = tags.filter((tag) => !tag.includes(tagExclude))
+                }
+                if (tags.length === 0 && !emptyReason) emptyReason = 'exclude'
+              } else if (!tagFilter) {
+                tags = tags.filter((tag) => !/[-_]/.test(tag))
+                if (tags.length === 0 && !emptyReason) emptyReason = 'default_exclude'
               }
-              return
+
+              const latestTag = tags[0] || ''
+              if (!latestTag) {
+                if (emptyReason === 'include') {
+                  core.setFailed(`No tags matched include filter. tag_filter='${tagFilter}'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.`)
+                } else if (emptyReason === 'exclude') {
+                  core.setFailed(`All tags were excluded by tag_exclude. tag_exclude='${tagExclude}'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.`)
+                } else if (emptyReason === 'default_exclude') {
+                  core.setFailed("All tags were excluded by default rule '[-_]'. Set tag_exclude to customize behavior, or check available tags with 'git tag --sort=-v:refname'.")
+                } else {
+                  core.setFailed("No matching tag found after include-then-exclude filtering. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.")
+                }
+                return
+              }
+
+              core.info(`latest tag: ${latestTag}`)
+              appendEnv('NEW_VERSION', latestTag)
+
+              const filePath = './Sources/BuildScripts/XCFrameworkBuild/main.swift'
+              const content = fs.readFileSync(filePath, 'utf8')
+              const versionPattern = new RegExp(`(case \\.${escapeRegex(library)}[^"]+?)"(.+?)"`)
+              const matched = content.match(versionPattern)
+
+              if (!matched) {
+                core.setFailed(`Cannot find version entry for library '${library}' in ${filePath}.`)
+                return
+              }
+
+              const oldVersion = matched[2]
+              core.info(`old version: ${oldVersion}`)
+              core.info(`new version: ${latestTag}`)
+              appendEnv('OLD_VERSION', oldVersion)
+
+              if (parseVersion(latestTag) > parseVersion(oldVersion)) {
+                const updated = content.replace(versionPattern, `$1"${latestTag}"`)
+                fs.writeFileSync(filePath, updated, 'utf8')
+                appendEnv('FOUND_NEW_VERSION', '1')
+              }
+            } finally {
+              fs.rmSync(latestCodePath, { recursive: true, force: true })
             }
-
-            core.info(`latest tag: ${latestTag}`)
-            appendEnv('NEW_VERSION', latestTag)
-
-            const filePath = './Sources/BuildScripts/XCFrameworkBuild/main.swift'
-            const content = fs.readFileSync(filePath, 'utf8')
-            const versionPattern = new RegExp(`(case \\.${escapeRegex(library)}[^"]+?)"(.+?)"`)
-            const matched = content.match(versionPattern)
-
-            if (!matched) {
-              core.setFailed(`Cannot find version entry for library '${library}' in ${filePath}.`)
-              return
-            }
-
-            const oldVersion = matched[2]
-            core.info(`old version: ${oldVersion}`)
-            core.info(`new version: ${latestTag}`)
-            appendEnv('OLD_VERSION', oldVersion)
-
-            if (parseVersion(latestTag) > parseVersion(oldVersion)) {
-              const updated = content.replace(versionPattern, `$1"${latestTag}"`)
-              fs.writeFileSync(filePath, updated, 'utf8')
-              appendEnv('FOUND_NEW_VERSION', '1')
-            }
-
-            fs.rmSync(path.resolve('./latest_code'), { recursive: true, force: true })
             
 
       - name: Prepare PR body
