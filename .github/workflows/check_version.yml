@@ -79,9 +79,10 @@ jobs:
           # --------------------------
           # Filter include tags
           # --------------------------
+          regex_chars='[.*+?^$[\](){}|\\]'
           if [[ -n "$tag_filter" ]]; then
             # Automatic judgment: contains regular expression metacharacters → regular expression matching; otherwise → ordinary string matching
-            if [[ "$tag_filter" =~ [.*+?^$[\](){}|\\] ]]; then
+            if [[ "$tag_filter" =~ $regex_chars ]]; then
               mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -E -- "$tag_filter" 2>/dev/null || true)
             else
               mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -F -- "$tag_filter" 2>/dev/null || true)
@@ -97,7 +98,7 @@ jobs:
           # --------------------------
           if [[ -n "$tag_exclude" ]]; then
             # Automatic judgment: contains regular expression metacharacters → regular exclusion; otherwise → ordinary string exclusion
-            if [[ "$tag_exclude" =~ [.*+?^$[\](){}|\\] ]]; then
+            if [[ "$tag_exclude" =~ $regex_chars ]]; then
               mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- "$tag_exclude" 2>/dev/null || true)
             else
               mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Fv -- "$tag_exclude" 2>/dev/null || true)
