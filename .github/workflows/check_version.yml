@@ -107,7 +107,7 @@ jobs:
             if [[ ${#tags[@]} -eq 0 && -z "$empty_reason" ]]; then
               empty_reason='exclude'
             fi
-          else
+          elif [[ -z "$tag_filter" ]]; then
             # Backward compatibility: Tags with - _ are excluded by default
             mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- '[-_]' || true)
             if [[ ${#tags[@]} -eq 0 && -z "$empty_reason" ]]; then
