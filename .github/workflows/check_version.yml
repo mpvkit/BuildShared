@@ -67,22 +67,45 @@ jobs:
           tag_exclude='${{ inputs.tag_exclude }}'
 
           mapfile -t tags < <(git tag --sort=-v:refname)
+          empty_reason=''
+
+          if [[ ${#tags[@]} -eq 0 ]]; then
+            echo "No tags found in source repository. Please verify repository and tags." >&2
+            exit 1
+          fi
 
           if [[ -n "$tag_filter" ]]; then
             mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -E -- "$tag_filter" || true)
+            if [[ ${#tags[@]} -eq 0 ]]; then
+              empty_reason='include'
+            fi
           fi
 
           if [[ -n "$tag_exclude" ]]; then
             mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- "$tag_exclude" || true)
+            if [[ ${#tags[@]} -eq 0 && -z "$empty_reason" ]]; then
+              empty_reason='exclude'
+            fi
           else
             # backward compatibility: equivalent to previous `grep -v "-" | grep -v "_"` behavior
             mapfile -t tags < <(printf '%s\n' "${tags[@]}" | grep -Ev -- '[-_]' || true)
+            if [[ ${#tags[@]} -eq 0 && -z "$empty_reason" ]]; then
+              empty_reason='default_exclude'
+            fi
           fi
 
           latest_tag="${tags[0]:-}"
 
           if [[ -z "$latest_tag" ]]; then
-            echo "No matching tag found after include-then-exclude filtering. tag_filter='$tag_filter', tag_exclude='$tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
+            if [[ "$empty_reason" == "include" ]]; then
+              echo "No tags matched include filter. tag_filter='$tag_filter'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
+            elif [[ "$empty_reason" == "exclude" ]]; then
+              echo "All tags were excluded by tag_exclude. tag_exclude='$tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
+            elif [[ "$empty_reason" == "default_exclude" ]]; then
+              echo "All tags were excluded by default rule '[-_]'. Set tag_exclude to customize behavior, or check available tags with 'git tag --sort=-v:refname'." >&2
+            else
+              echo "No matching tag found after include-then-exclude filtering. tag_filter='$tag_filter', tag_exclude='$tag_exclude'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository." >&2
+            fi
             exit 1
           fi
 
