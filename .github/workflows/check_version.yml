@@ -70,7 +70,7 @@ jobs:
             const tagExclude = `${{ inputs.tag_exclude }}`
             const library = `${{ inputs.library }}`
 
-            const escapeRegex = (text) => text.replace(/[\\^$.*+?()[\]{}|\-]/g, '\\$&')
+            const escapeRegex = (text) => text.replace(/[\\^$.*+?()[\]{}|-]/g, '\\$&')
             const hasRegexMeta = (text) => /[.*+?^$[\](){}|\\]/.test(text)
             const parseVersion = (ver) => {
               // Keep parity with previous Python implementation.
