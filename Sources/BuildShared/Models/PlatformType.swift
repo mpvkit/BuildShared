@@ -112,8 +112,12 @@ public enum PlatformType: String, CaseIterable {
             return "-mios-simulator-version-min=\(minVersion)"
         case .tvsimulator:
             return "-mtvos-simulator-version-min=\(minVersion)"
-        case .maccatalyst, .xros, .xrsimulator:
+        case .maccatalyst:
             return ""
+        case .xros:
+            return "-mxros-version-min=\(minVersion)"
+        case .xrsimulator:
+            return "-mxros-simulator-version-min=\(minVersion)"
         }
     }
     
