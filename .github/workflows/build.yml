@@ -72,6 +72,34 @@ jobs:
       run: |
         make build version=${{ env.RELEASE_VERSION }}
     
+    - name: Verify minimum OS versions
+      shell: bash
+      run: |
+        FAILED=0
+        while IFS= read -r -d '' lib; do
+          platform=$(echo "$lib" | sed -n 's|.*/lib/\([^/]*\)/thin/.*|\1|p')
+          [ -z "$platform" ] && continue
+          case "$platform" in
+            ios|isimulator) expected="14.0" ;;
+            tvos|tvsimulator) expected="14.0" ;;
+            macos) expected="11.0" ;;
+            xros|xrsimulator) expected="1.0" ;;
+            maccatalyst) continue ;;
+            *) echo "Unknown platform: $platform in $lib"; FAILED=1; continue ;;
+          esac
+          minos=$(otool -l "$lib" 2>/dev/null | grep "minos" | awk '{print $2}' | sort -u | head -1)
+          if [ -z "$minos" ]; then
+            echo "ERROR: Could not determine minos for $lib"; FAILED=1
+            continue
+          fi
+          if echo "$minos $expected" | awk '{ split($1,a,"."); split($2,b,"."); if (a[1]*100+a[2] > b[1]*100+b[2]) exit 1 }'; then
+            echo "PASS: $lib minos=$minos <= $expected"
+          else
+            echo "FAIL: $lib minos=$minos > $expected"; FAILED=1
+          fi
+        done < <(find ./dist/release -name "*.a" -type f -print0 2>/dev/null)
+        if [ "$FAILED" -ne 0 ]; then echo "Minimum OS version check failed!"; exit 1; fi
+
     - name: Update Package.swift
       run: |
         rm -rf ./Package.swift
