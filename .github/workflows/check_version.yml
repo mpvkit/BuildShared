@@ -15,6 +15,16 @@ on:
         description: custom pull request body (optional)
         required: false
         type: string
+      tag_filter:
+        description: include filter for tag names (regex supported, optional)
+        required: false
+        default: ''
+        type: string
+      tag_exclude:
+        description: exclude filter for tag names (regex supported, optional)
+        required: false
+        default: ''
+        type: string
 
 jobs:
   check_version:
@@ -24,13 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Checkout latest code
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ inputs.repository }}
-          path: 'latest_code'
-          fetch-depth: 0
 
       - name: Normalize repository input
         shell: bash
@@ -45,40 +48,132 @@ jobs:
           echo "repository url: $repo_url"
           echo "REPOSITORY_URL=$repo_url" >> $GITHUB_ENV
 
-
-      - name: Get latest verion
-        id: version
+      - name: Checkout latest code
+        shell: bash
         run: |
-          cd ./latest_code
-          latest_tag=$(git tag --sort=-v:refname | grep -v "-" | grep -v "_" | head -n 1)
-          echo "latest tag: $latest_tag"
-          echo "NEW_VERSION=$latest_tag" >> $GITHUB_ENV
-          rm -rf ../latest_code
+          git clone --no-single-branch "$REPOSITORY_URL" latest_code || {
+            echo "Failed to clone repository: $REPOSITORY_URL"
+            exit 1
+          }
+          git -C latest_code fetch --tags --force
 
-      - name: update to new version
-        uses: jannekem/run-python-script-action@v1
+
+      - name: Resolve latest version and update file
+        uses: actions/github-script@v7
         with:
           script: |
-            import re
+            const fs = require('fs')
+            const path = require('path')
+            const cp = require('child_process')
 
-            def parse_version(ver):
-              if '-' in ver or ver == '':
-                return 0
-              return int(re.sub(r'[^0-9]+', r'', ver))
+            const tagFilter = `${{ inputs.tag_filter }}`
+            const tagExclude = `${{ inputs.tag_exclude }}`
+            const library = `${{ inputs.library }}`
 
-            file_path = './Sources/BuildScripts/XCFrameworkBuild/main.swift'
-            with open(file_path, 'r', encoding='utf-8') as file:
-              content = file.read()
-            oldVersion = re.search(r'(case .${{ inputs.library }}[^\"]+?)"(.+?)"', content).group(2)
-            print("old version:", oldVersion)
-            set_env('OLD_VERSION', oldVersion)
-            newVersion = '${{ env.NEW_VERSION }}'
-            print("new version:", newVersion)
-            if parse_version(newVersion) > parse_version(oldVersion):
-              content = re.sub(r'(case .${{ inputs.library }}[^\"]+?)"(.+?)"', r'\1"${{ env.NEW_VERSION }}"', content, count=1)
-              set_env('FOUND_NEW_VERSION', '1')
-              with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(content)
+            const escapeRegex = (text) => text.replace(/[\\^$.*+?()[\]{}|-]/g, '\\$&')
+            const hasRegexMeta = (text) => /[.*+?^$[\](){}|\\]/.test(text)
+            const parseVersion = (ver) => {
+              // Keep parity with previous Python implementation.
+              if (!ver || ver.includes('-')) return 0
+              const digits = ver.replace(/[^0-9]+/g, '')
+              return digits ? Number.parseInt(digits, 10) : 0
+            }
+            const safeRegex = (pattern) => {
+              try {
+                return new RegExp(pattern)
+              } catch {
+                return null
+              }
+            }
+            const appendEnv = (key, value) => {
+              fs.appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`)
+            }
+            const runGit = (args) =>
+              cp.execFileSync('git', args, { cwd: './latest_code', encoding: 'utf8' }).trim()
+
+            const latestCodePath = path.resolve('./latest_code')
+            try {
+              let tags = runGit(['tag', '--sort=-v:refname'])
+                .split('\n')
+                .map((tag) => tag.trim())
+                .filter(Boolean)
+
+              if (tags.length === 0) {
+                core.setFailed('No tags found in source repository. Please verify repository and tags.')
+                return
+              }
+
+              let emptyReason = ''
+
+              if (tagFilter) {
+                if (hasRegexMeta(tagFilter)) {
+                  const includeRegex = safeRegex(tagFilter)
+                  tags = includeRegex ? tags.filter((tag) => includeRegex.test(tag)) : []
+                } else {
+                  tags = tags.filter((tag) => tag.includes(tagFilter))
+                }
+                if (tags.length === 0) emptyReason = 'include'
+              }
+
+              if (tagExclude) {
+                if (hasRegexMeta(tagExclude)) {
+                  const excludeRegex = safeRegex(tagExclude)
+                  tags = excludeRegex ? tags.filter((tag) => !excludeRegex.test(tag)) : []
+                } else {
+                  tags = tags.filter((tag) => !tag.includes(tagExclude))
+                }
+                if (tags.length === 0 && !emptyReason) emptyReason = 'exclude'
+              } else if (!tagFilter) {
+                tags = tags.filter((tag) => !/[-_]/.test(tag))
+                if (tags.length === 0 && !emptyReason) emptyReason = 'default_exclude'
+              }
+
+              const latestTag = tags[0] || ''
+              if (!latestTag) {
+                if (emptyReason === 'include') {
+                  core.setFailed(`No tags matched include filter. tag_filter='${tagFilter}'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.`)
+                } else if (emptyReason === 'exclude') {
+                  core.setFailed(`All tags were excluded by tag_exclude. tag_exclude='${tagExclude}'. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.`)
+                } else if (emptyReason === 'default_exclude') {
+                  core.setFailed("All tags were excluded by default rule '[-_]'. Set tag_exclude to customize behavior, or check available tags with 'git tag --sort=-v:refname'.")
+                } else {
+                  core.setFailed("No matching tag found after include-then-exclude filtering. Please verify patterns and run 'git tag --sort=-v:refname' in the source repository.")
+                }
+                return
+              }
+
+              core.info(`latest tag: ${latestTag}`)
+              appendEnv('NEW_VERSION', latestTag)
+
+              const filePath = './Sources/BuildScripts/XCFrameworkBuild/main.swift'
+              const content = fs.readFileSync(filePath, 'utf8')
+              let versionPattern
+              try {
+                versionPattern = new RegExp(`(case \\.${escapeRegex(library)}[^"]+?)"(.+?)"`)
+              } catch {
+                core.setFailed(`Invalid library pattern for '${library}'.`)
+                return
+              }
+              const matched = content.match(versionPattern)
+
+              if (!matched) {
+                core.setFailed(`Cannot find version entry for library '${library}' in ${filePath}.`)
+                return
+              }
+
+              const oldVersion = matched[2]
+              core.info(`old version: ${oldVersion}`)
+              core.info(`new version: ${latestTag}`)
+              appendEnv('OLD_VERSION', oldVersion)
+
+              if (parseVersion(latestTag) > parseVersion(oldVersion)) {
+                const updated = content.replace(versionPattern, `$1"${latestTag}"`)
+                fs.writeFileSync(filePath, updated, 'utf8')
+                appendEnv('FOUND_NEW_VERSION', '1')
+              }
+            } finally {
+              fs.rmSync(latestCodePath, { recursive: true, force: true })
+            }
             
 
       - name: Prepare PR body
