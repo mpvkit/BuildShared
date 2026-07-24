@@ -69,6 +69,9 @@ jobs:
             if (hasChanges) {
               require('fs').writeFileSync(filePath, updated, 'utf8');
               core.info('PlatformType.swift updated');
+              core.exportVariable('NEW_IOS', targets.ios);
+              core.exportVariable('NEW_MACOS', targets.macos);
+              core.exportVariable('NEW_TVOS', targets.tvos);
             } else {
               core.info('No version changes needed');
             }
@@ -81,9 +84,13 @@ jobs:
         with:
           add-paths: |
             Sources/BuildShared/Models/PlatformType.swift
-          title: "Raise minimum OS versions"
+          title: "raise minimum OS versions to iOS ${{ env.NEW_IOS }} / macOS ${{ env.NEW_MACOS }} / tvOS ${{ env.NEW_TVOS }}"
           body: |
             Updates minimum OS deployment targets to match MoltenVK's Xcode project settings.
 
+            - iOS: ${{ env.NEW_IOS }}
+            - macOS: ${{ env.NEW_MACOS }}
+            - tvOS: ${{ env.NEW_TVOS }}
+
             Source: https://raw.githubusercontent.com/KhronosGroup/MoltenVK/refs/heads/main/MoltenVK/MoltenVK.xcodeproj/project.pbxproj
-          commit-message: "chore: raise minimum OS versions"
+          commit-message: "chore: raise minimum OS versions to iOS ${{ env.NEW_IOS }} / macOS ${{ env.NEW_MACOS }} / tvOS ${{ env.NEW_TVOS }}"
