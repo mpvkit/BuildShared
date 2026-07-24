@@ -41,34 +41,57 @@ jobs:
 
             core.info(`Parsed targets: ${JSON.stringify(targets)}`);
 
-            const filePath = 'Sources/BuildShared/Models/PlatformType.swift';
-            const content = fs.readFileSync(filePath, 'utf8');
+            const platformFile = 'Sources/BuildShared/Models/PlatformType.swift';
+            const packageFile = 'Package.swift';
+            let platformContent = fs.readFileSync(platformFile, 'utf8');
+            let packageContent = fs.readFileSync(packageFile, 'utf8');
+            let hasChanges = false;
 
+            // Update PlatformType.swift
             const versionMap = {
               ios: targets.ios,
               tvos: targets.tvos,
               macos: targets.macos,
             };
 
-            let updated = content;
-            let hasChanges = false;
-
             for (const [platform, newVersion] of Object.entries(versionMap)) {
               const pattern = new RegExp(`(case \\.${platform}(?:,|:)[\\s\\S]*?return )"(\\d+\\.\\d+)"`);
-              const match = content.match(pattern);
+              const match = platformContent.match(pattern);
               if (match) {
                 const oldVersion = match[2];
                 if (newVersion !== oldVersion) {
-                  updated = updated.replace(pattern, `$1"${newVersion}"`);
-                  core.info(`Updating ${platform}: ${oldVersion} -> ${newVersion}`);
+                  platformContent = platformContent.replace(pattern, `$1"${newVersion}"`);
+                  core.info(`PlatformType.swift ${platform}: ${oldVersion} -> ${newVersion}`);
+                  hasChanges = true;
+                }
+              }
+            }
+
+            // Update Package.swift
+            const pkgVersionMap = {
+              iOS: targets.ios,
+              macOS: targets.macos,
+              tvOS: targets.tvos,
+            };
+
+            for (const [key, newVersion] of Object.entries(pkgVersionMap)) {
+              const pkgPattern = new RegExp(`\\.${key}\\(\\.[vV](\\d+)\\)`);
+              const pkgMatch = packageContent.match(pkgPattern);
+              if (pkgMatch) {
+                const oldMajor = pkgMatch[1];
+                const newMajor = newVersion.split('.')[0];
+                if (newMajor !== oldMajor) {
+                  packageContent = packageContent.replace(pkgPattern, `.${key}(.v${newMajor})`);
+                  core.info(`Package.swift ${key}: v${oldMajor} -> v${newMajor}`);
                   hasChanges = true;
                 }
               }
             }
 
             if (hasChanges) {
-              require('fs').writeFileSync(filePath, updated, 'utf8');
-              core.info('PlatformType.swift updated');
+              require('fs').writeFileSync(platformFile, platformContent, 'utf8');
+              require('fs').writeFileSync(packageFile, packageContent, 'utf8');
+              core.info('Files updated');
               core.exportVariable('NEW_IOS', targets.ios);
               core.exportVariable('NEW_MACOS', targets.macos);
               core.exportVariable('NEW_TVOS', targets.tvos);
@@ -84,6 +107,7 @@ jobs:
         with:
           add-paths: |
             Sources/BuildShared/Models/PlatformType.swift
+            Package.swift
           title: "raise minimum OS versions to iOS ${{ env.NEW_IOS }} / macOS ${{ env.NEW_MACOS }} / tvOS ${{ env.NEW_TVOS }}"
           body: |
             Updates minimum OS deployment targets to match MoltenVK's Xcode project settings.
