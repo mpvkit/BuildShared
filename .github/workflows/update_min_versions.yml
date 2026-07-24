@@ -42,9 +42,7 @@ jobs:
             core.info(`Parsed targets: ${JSON.stringify(targets)}`);
 
             const platformFile = 'Sources/BuildShared/Models/PlatformType.swift';
-            const packageFile = 'Package.swift';
             let platformContent = fs.readFileSync(platformFile, 'utf8');
-            let packageContent = fs.readFileSync(packageFile, 'utf8');
             let hasChanges = false;
 
             // Update PlatformType.swift
@@ -66,31 +64,8 @@ jobs:
                 }
               }
             }
-
-            // Update Package.swift
-            const pkgVersionMap = {
-              iOS: targets.ios,
-              macOS: targets.macos,
-              tvOS: targets.tvos,
-            };
-
-            for (const [key, newVersion] of Object.entries(pkgVersionMap)) {
-              const pkgPattern = new RegExp(`\\.${key}\\(\\.[vV](\\d+)\\)`);
-              const pkgMatch = packageContent.match(pkgPattern);
-              if (pkgMatch) {
-                const oldMajor = pkgMatch[1];
-                const newMajor = newVersion.split('.')[0];
-                if (newMajor !== oldMajor) {
-                  packageContent = packageContent.replace(pkgPattern, `.${key}(.v${newMajor})`);
-                  core.info(`Package.swift ${key}: v${oldMajor} -> v${newMajor}`);
-                  hasChanges = true;
-                }
-              }
-            }
-
             if (hasChanges) {
               require('fs').writeFileSync(platformFile, platformContent, 'utf8');
-              require('fs').writeFileSync(packageFile, packageContent, 'utf8');
               core.info('Files updated');
               core.exportVariable('NEW_IOS', targets.ios);
               core.exportVariable('NEW_MACOS', targets.macos);
@@ -107,7 +82,6 @@ jobs:
         with:
           add-paths: |
             Sources/BuildShared/Models/PlatformType.swift
-            Package.swift
           title: "raise minimum OS versions to iOS ${{ env.NEW_IOS }} / macOS ${{ env.NEW_MACOS }} / tvOS ${{ env.NEW_TVOS }}"
           body: |
             Updates minimum OS deployment targets to match MoltenVK's Xcode project settings.

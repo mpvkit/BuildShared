@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "BuildShared",
     platforms: [
-        .macOS(.v12), .iOS(.v15), .tvOS(.v15)
+        .macOS(.v11)
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
