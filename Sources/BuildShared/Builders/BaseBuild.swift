@@ -712,6 +712,40 @@ open class BaseBuild {
         }
 
         if let data = FileManager.default.contents(atPath: packageFile.path), var str = String(data: data, encoding: .utf8) {
+            let platformNameMap: [String: PlatformType] = [
+                "macOS": .macos,
+                "iOS": .ios,
+                "tvOS": .tvos,
+                "visionOS": .xros,
+                "macCatalyst": .maccatalyst,
+            ]
+            let versionPattern = try! NSRegularExpression(pattern: #"\.(macOS|iOS|tvOS|visionOS|macCatalyst)\(\.v(\d+)\)"#)
+            let nsRange = NSRange(str.startIndex..., in: str)
+            var result = ""
+            var lastIndex = str.startIndex
+            versionPattern.enumerateMatches(in: str, range: nsRange) { match, _, _ in
+                guard let match = match else { return }
+                let platformRange = Range(match.range(at: 1), in: str)!
+                let versionRange = Range(match.range(at: 2), in: str)!
+                let matchRange = Range(match.range, in: str)!
+                let platformName = String(str[platformRange])
+                let templateVersion = Int(String(str[versionRange]))!
+                if let platformType = platformNameMap[platformName] {
+                    let minVersionStr = platformType.minVersion
+                    if !minVersionStr.isEmpty, let minMajor = Int(minVersionStr.split(separator: ".").first!) {
+                        if templateVersion < minMajor {
+                            result += str[lastIndex..<matchRange.lowerBound]
+                            result += ".\(platformName)(.v\(minMajor))"
+                            lastIndex = matchRange.upperBound
+                            return
+                        }
+                    }
+                }
+                result += str[lastIndex..<matchRange.upperBound]
+                lastIndex = matchRange.upperBound
+            }
+            result += str[lastIndex...]
+            str = result
             let placeholderChars = "//AUTO_GENERATE_TARGETS_END//"
             str = str.replacingOccurrences(of: 
             """
