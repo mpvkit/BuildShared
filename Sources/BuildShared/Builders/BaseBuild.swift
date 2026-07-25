@@ -65,13 +65,14 @@ open class BaseBuild {
                 try build(platform: platform, arch: arch)
             }
         }
+        
+        try verifyMinimumOSVersions()
         try createXCFramework()
         try packageRelease()
         try afterBuild()
     }
 
     open func afterBuild() throws {
-        try verifyMinimumOSVersions()
         try generatePackageManagerFile()
     }
 
