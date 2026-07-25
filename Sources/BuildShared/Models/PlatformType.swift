@@ -7,12 +7,14 @@ public enum PlatformType: String, CaseIterable {
     /// Minimum OS version required for this platform
     public var minVersion: String {
         switch self {
-        case .ios, .isimulator, .maccatalyst:
+        case .ios, .isimulator:
             return "15.0"
         case .tvos, .tvsimulator:
             return "15.0"
         case .macos:
             return "12.0"
+        case .maccatalyst:
+            return ""
         case .xros, .xrsimulator:
             return "1.0"
         }
