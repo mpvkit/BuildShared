@@ -28,15 +28,15 @@ public enum Utility {
     ///   - environment: Environment variables
     /// - Returns: Command output
     @discardableResult
-    public static func launch(path: String, arguments: [String], isOutput: Bool = false, currentDirectoryURL: URL? = nil, environment: [String: String] = [:]) throws -> String {
+    public static func launch(path: String, arguments: [String], isOutput: Bool = false, isPrint: Bool = true, currentDirectoryURL: URL? = nil, environment: [String: String] = [:]) throws -> String {
         if !path.hasPrefix("/") {
             let execPath = Utility.shell("which \(path)", isOutput: true)!
             if execPath.isEmpty {
                 throw NSError(domain: "[\(path)] not found", code: 1)
             }
-            return try launch(executableURL: URL(fileURLWithPath: execPath), arguments: arguments, isOutput: isOutput, currentDirectoryURL: currentDirectoryURL, environment: environment)
+            return try launch(executableURL: URL(fileURLWithPath: execPath), arguments: arguments, isOutput: isOutput, isPrint: isPrint, currentDirectoryURL: currentDirectoryURL, environment: environment)
         } else {
-            return try launch(executableURL: URL(fileURLWithPath: path), arguments: arguments, isOutput: isOutput, currentDirectoryURL: currentDirectoryURL, environment: environment)
+            return try launch(executableURL: URL(fileURLWithPath: path), arguments: arguments, isOutput: isOutput, isPrint: isPrint, currentDirectoryURL: currentDirectoryURL, environment: environment)
         }
     }
     
@@ -49,7 +49,7 @@ public enum Utility {
     ///   - environment: Environment variables
     /// - Returns: Command output
     @discardableResult
-    public static func launch(executableURL: URL, arguments: [String], isOutput: Bool = false, currentDirectoryURL: URL? = nil, environment: [String: String] = [:]) throws -> String {
+    public static func launch(executableURL: URL, arguments: [String], isOutput: Bool = false, isPrint: Bool = true, currentDirectoryURL: URL? = nil, environment: [String: String] = [:]) throws -> String {
         let task = Process()
         var environment = environment
         // for homebrew 1.12
@@ -85,7 +85,7 @@ public enum Utility {
             if !data.isEmpty {
                 outputBuffer.append(data)
                 if let outputString = String(data: data, encoding: .utf8) {
-                    if isOutput {
+                    if isPrint {
                         print(outputString.trimmingCharacters(in: .newlines))
                     }
 

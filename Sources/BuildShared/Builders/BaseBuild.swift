@@ -71,6 +71,7 @@ open class BaseBuild {
     }
 
     open func afterBuild() throws {
+        try verifyMinimumOSVersions()
         try generatePackageManagerFile()
     }
 
@@ -657,6 +658,68 @@ open class BaseBuild {
                     if let data = FileManager.default.contents(atPath: file.path), var str = String(data: data, encoding: .utf8) {
                         str = str.replacingOccurrences(of: URL.currentDirectory.path, with: "/path/to/workdir")
                         try! str.write(toFile: file.path, atomically: true, encoding: .utf8)
+                    }
+                }
+            }
+        }
+    }
+
+    open func verifyMinimumOSVersions() throws {
+        let libNames = try frameworks()
+        for libName in libNames {
+            let frameworkName: String
+            if libName.hasPrefix("lib") || libName.hasPrefix("Lib") {
+                frameworkName = libName
+            } else {
+                frameworkName = "lib" + libName
+            }
+            for platform in platforms() {
+                for arch in architectures(platform) {
+                    let prefix = thinDir(platform: platform, arch: arch)
+                    guard FileManager.default.fileExists(atPath: prefix.path) else { continue }
+                    guard !platform.minVersion.isEmpty else { continue }
+
+                    var libPath = prefix + ["lib", "\(frameworkName).a"]
+                    if !FileManager.default.fileExists(atPath: libPath.path) {
+                        libPath = prefix + ["lib", "\(frameworkName).dylib"]
+                    }
+                    guard FileManager.default.fileExists(atPath: libPath.path) else { continue }
+
+                    let output = try Utility.launch(path: "/usr/bin/otool", arguments: ["-l", libPath.path], isOutput: true, isPrint: false)
+
+                    var binaryMinVersion: String?
+                    let lines = output.components(separatedBy: "\n")
+                    for i in 0..<lines.count {
+                        let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+                        if trimmed == "cmd LC_BUILD_VERSION" {
+                            for j in (i + 1)..<min(i + 4, lines.count) {
+                                let sub = lines[j].trimmingCharacters(in: .whitespaces)
+                                if sub.hasPrefix("minos") {
+                                    let parts = sub.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+                                    if parts.count >= 2 { binaryMinVersion = parts[1] }
+                                    break
+                                }
+                            }
+                        } else if trimmed.hasPrefix("cmd LC_VERSION_MIN_") {
+                            for j in (i + 1)..<min(i + 4, lines.count) {
+                                let sub = lines[j].trimmingCharacters(in: .whitespaces)
+                                if sub.hasPrefix("version") {
+                                    let parts = sub.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+                                    if parts.count >= 2 { binaryMinVersion = parts[1] }
+                                    break
+                                }
+                            }
+                        }
+                        if binaryMinVersion != nil { break }
+                    }
+
+                    guard let binaryVersion = binaryMinVersion else {
+                        print("Warning: could not parse min version from \(libPath.path)")
+                        continue
+                    }
+
+                    if binaryVersion.compare(platform.minVersion, options: .numeric) == .orderedDescending {
+                        throw NSError(domain: "\(libPath.lastPathComponent): binary min version \(binaryVersion) > expected \(platform.minVersion) for \(platform.rawValue)/\(arch.rawValue)", code: 1)
                     }
                 }
             }
