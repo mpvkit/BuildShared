@@ -668,10 +668,14 @@ open class BaseBuild {
         let template = URL.currentDirectory + ["../docs/Package.template.swift"]
         let packageFile = releaseDirPath + "Package.swift"
 
-        if !FileManager.default.fileExists(atPath: packageFile.path) {
-            try! FileManager.default.createDirectory(at: releaseDirPath, withIntermediateDirectories: true, attributes: nil)
-            try! FileManager.default.copyItem(at: template, to: packageFile)
+        try upgradePackageTemplateVersions(template)
+
+        guard let updatedStr = try? String(contentsOf: template, encoding: .utf8) else {
+            return
         }
+
+        try! FileManager.default.createDirectory(at: releaseDirPath, withIntermediateDirectories: true, attributes: nil)
+        try! updatedStr.write(toFile: packageFile.path, atomically: true, encoding: .utf8)
 
         var dependencyTargetContent = ""
         if self is ZipBaseBuild {
@@ -707,56 +711,60 @@ open class BaseBuild {
             }
         }
 
-        if dependencyTargetContent.isEmpty {
-            return
-        }
-
-        if let data = FileManager.default.contents(atPath: packageFile.path), var str = String(data: data, encoding: .utf8) {
-            let platformNameMap: [String: PlatformType] = [
-                "macOS": .macos,
-                "iOS": .ios,
-                "tvOS": .tvos,
-                "visionOS": .xros,
-                "macCatalyst": .maccatalyst,
-            ]
-            let versionPattern = try! NSRegularExpression(pattern: #"\.(macOS|iOS|tvOS|visionOS|macCatalyst)\(\.v(\d+)\)"#)
-            let nsRange = NSRange(str.startIndex..., in: str)
-            var result = ""
-            var lastIndex = str.startIndex
-            versionPattern.enumerateMatches(in: str, range: nsRange) { match, _, _ in
-                guard let match = match else { return }
-                let platformRange = Range(match.range(at: 1), in: str)!
-                let versionRange = Range(match.range(at: 2), in: str)!
-                let matchRange = Range(match.range, in: str)!
-                let platformName = String(str[platformRange])
-                let templateVersion = Int(String(str[versionRange]))!
-                if let platformType = platformNameMap[platformName] {
-                    let minVersionStr = platformType.minVersion
-                    if !minVersionStr.isEmpty, let minMajor = Int(minVersionStr.split(separator: ".").first!) {
-                        if templateVersion < minMajor {
-                            result += str[lastIndex..<matchRange.lowerBound]
-                            result += ".\(platformName)(.v\(minMajor))"
-                            lastIndex = matchRange.upperBound
-                            return
-                        }
-                    }
-                }
-                result += str[lastIndex..<matchRange.upperBound]
-                lastIndex = matchRange.upperBound
-            }
-            result += str[lastIndex...]
-            str = result
+        if !dependencyTargetContent.isEmpty, let data = FileManager.default.contents(atPath: packageFile.path), var pkgStr = String(data: data, encoding: .utf8) {
             let placeholderChars = "//AUTO_GENERATE_TARGETS_END//"
-            str = str.replacingOccurrences(of: 
+            pkgStr = pkgStr.replacingOccurrences(of:
             """
                     \(placeholderChars)
-            """, with: 
+            """, with:
             """
             \(dependencyTargetContent)
                     \(placeholderChars)
             """)
-            try! str.write(toFile: packageFile.path, atomically: true, encoding: .utf8)
+            try! pkgStr.write(toFile: packageFile.path, atomically: true, encoding: .utf8)
         }
+    }
+
+    private func upgradePackageTemplateVersions(_ templatePath: URL) throws {
+        guard FileManager.default.fileExists(atPath: templatePath.path),
+              let content = try? String(contentsOf: templatePath, encoding: .utf8) else {
+            return
+        }
+
+        let platformNameMap: [String: PlatformType] = [
+            "macOS": .macos,
+            "iOS": .ios,
+            "tvOS": .tvos,
+            "visionOS": .xros,
+            "macCatalyst": .maccatalyst,
+        ]
+        let versionPattern = try! NSRegularExpression(pattern: #"\.(macOS|iOS|tvOS|visionOS|macCatalyst)\(\.v(\d+)\)"#)
+        let nsRange = NSRange(content.startIndex..., in: content)
+        var result = ""
+        var lastIndex = content.startIndex
+        versionPattern.enumerateMatches(in: content, range: nsRange) { match, _, _ in
+            guard let match = match else { return }
+            let platformRange = Range(match.range(at: 1), in: content)!
+            let versionRange = Range(match.range(at: 2), in: content)!
+            let matchRange = Range(match.range, in: content)!
+            let platformName = String(content[platformRange])
+            let templateVersion = Int(String(content[versionRange]))!
+            if let platformType = platformNameMap[platformName] {
+                let minVersionStr = platformType.minVersion
+                if !minVersionStr.isEmpty, let minMajor = Int(minVersionStr.split(separator: ".").first!) {
+                    if templateVersion < minMajor {
+                        result += content[lastIndex..<matchRange.lowerBound]
+                        result += ".\(platformName)(.v\(minMajor))"
+                        lastIndex = matchRange.upperBound
+                        return
+                    }
+                }
+            }
+            result += content[lastIndex..<matchRange.upperBound]
+            lastIndex = matchRange.upperBound
+        }
+        result += content[lastIndex...]
+        try! result.write(toFile: templatePath.path, atomically: true, encoding: .utf8)
     }
 
     private func getFirstSuccessPlatform() -> PlatformType? {
