@@ -111,6 +111,7 @@ jobs:
       with:
         default_author: github_actions
         add: |
+          - docs/Package.template.swift
           - Package.swift
         message: "chore: bump version to ${{ env.BUILD_VERSION }}"
         push: "origin HEAD:${{ github.ref_name }}"
