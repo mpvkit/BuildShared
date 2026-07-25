@@ -665,6 +665,7 @@ open class BaseBuild {
     }
 
     open func verifyMinimumOSVersions() throws {
+        print("Verifying minimum OS versions for built libraries...")
         let libNames = try frameworks()
         for libName in libNames {
             let frameworkName: String
@@ -721,6 +722,7 @@ open class BaseBuild {
                     if binaryVersion.compare(platform.minVersion, options: .numeric) == .orderedDescending {
                         throw NSError(domain: "\(libPath.lastPathComponent): binary min version \(binaryVersion) > expected \(platform.minVersion) for \(platform.rawValue)/\(arch.rawValue)", code: 1)
                     }
+                    print("\(libPath.lastPathComponent): binary min version \(binaryVersion) <= expected \(platform.minVersion) for \(platform.rawValue)/\(arch.rawValue) ✅")
                 }
             }
         }
